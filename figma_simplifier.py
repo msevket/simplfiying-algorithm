@@ -210,8 +210,17 @@ def _extract_dimensions(node: dict, parent: Optional[dict], mode: str) -> dict:
     bbox = node.get("absoluteBoundingBox", {})
     parent_bbox = (parent or {}).get("absoluteBoundingBox", {})
 
-    # Location relative to parent
-    if result.get("position") == "absolute" and bbox and parent_bbox:
+    # Location relative to parent:
+    # - Explicit absolute positioned nodes → always
+    # - Children of mode:none parents → always (no flex to determine position)
+    needs_position = result.get("position") == "absolute"
+    
+    # Check if parent has no auto-layout (mode: none)
+    parent_layout_mode = parent.get("layoutMode") if parent else None
+    if parent and (not parent_layout_mode or parent_layout_mode == "NONE"):
+        needs_position = True
+
+    if needs_position and bbox and parent_bbox:
         result["locationRelativeToParent"] = {
             "x": round_num(bbox.get("x", 0) - parent_bbox.get("x", 0)),
             "y": round_num(bbox.get("y", 0) - parent_bbox.get("y", 0)),

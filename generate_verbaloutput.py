@@ -83,12 +83,17 @@ def describe_layout(layout: Optional[dict]) -> list[str]:
     if size_parts:
         lines.append(f"Size: {', '.join(size_parts)}")
     
-    # Absolute position
+    # Absolute position or position within non-auto-layout parent
     if layout.get("position") == "absolute":
         loc = layout.get("locationRelativeToParent", {})
         x = loc.get("x", 0)
         y = loc.get("y", 0)
         lines.append(f"Position: absolute (x: {x}px, y: {y}px)")
+    elif layout.get("locationRelativeToParent"):
+        loc = layout["locationRelativeToParent"]
+        x = loc.get("x", 0)
+        y = loc.get("y", 0)
+        lines.append(f"Position: x: {x}px, y: {y}px (no auto-layout parent)")
     
     return lines
 
