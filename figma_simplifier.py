@@ -495,10 +495,6 @@ def component_extractor(node: dict, result: SimplifiedNode, context: TraversalCo
     if node.get("type") != "INSTANCE":
         return
 
-    cid = node.get("componentId")
-    if cid:
-        result["componentId"] = cid
-
     props = node.get("componentProperties")
     if props and isinstance(props, dict):
         result["componentProperties"] = [
@@ -528,7 +524,6 @@ def _traverse_node(
         node_type = "IMAGE-SVG"
 
     result: SimplifiedNode = {
-        "id": node.get("id", ""),
         "name": node.get("name", ""),
         "type": node_type,
     }
@@ -645,8 +640,6 @@ def simplify_figma_response(
 
     # Parse API response (GetFile vs GetFileNodes format)
     raw_nodes = []
-    components = {}
-    component_sets = {}
     extra_styles = {}
     name = api_response.get("name", "")
 
@@ -655,18 +648,12 @@ def simplify_figma_response(
         for node_data in api_response["nodes"].values():
             if node_data and node_data.get("document"):
                 raw_nodes.append(node_data["document"])
-            if node_data and node_data.get("components"):
-                components.update(node_data["components"])
-            if node_data and node_data.get("componentSets"):
-                component_sets.update(node_data["componentSets"])
             if node_data and node_data.get("styles"):
                 extra_styles.update(node_data["styles"])
     else:
         # GetFile response
         doc = api_response.get("document", {})
         raw_nodes = doc.get("children", [])
-        components = api_response.get("components", {})
-        component_sets = api_response.get("componentSets", {})
         extra_styles = api_response.get("styles", {})
 
     # Global vars with extra styles for named style resolution
@@ -675,28 +662,8 @@ def simplify_figma_response(
     # Run extraction
     result = extract_from_design(raw_nodes, extractors, max_depth, global_vars)
 
-    # Build simplified components map
-    simplified_components = {
-        cid: {
-            "id": cid, "key": c.get("key", ""),
-            "name": c.get("name", ""),
-            "componentSetId": c.get("componentSetId"),
-        }
-        for cid, c in components.items()
-    }
-    simplified_sets = {
-        sid: {
-            "id": sid, "key": s.get("key", ""),
-            "name": s.get("name", ""),
-            "description": s.get("description"),
-        }
-        for sid, s in component_sets.items()
-    }
-
     return {
         "name": name,
         "nodes": result["nodes"],
-        "components": simplified_components,
-        "componentSets": simplified_sets,
         "globalVars": {"styles": result["globalVars"]["styles"]},
     }
