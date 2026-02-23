@@ -191,13 +191,39 @@ def describe_text_style(ts_key: Optional[str], styles: dict) -> Optional[str]:
 # Node Descriptor — her node tipini sözel anlat
 # ══════════════════════════════════════════════════════════════════
 
+# Component catalog prefixes — bunlar senin bilinen component'lerin
+CATALOG_PREFIXES = ("efa-", "cfa-", "wsp-")
+
+
+def _is_catalog_component(name: str) -> bool:
+    """efa-*/cfa-*/wsp-* ile başlayan ve noktalı OLMAYAN component mi?"""
+    name_lower = name.lower()
+    return any(name_lower.startswith(p) for p in CATALOG_PREFIXES) and not name.startswith(".")
+
+
+def _is_dotted_internal(name: str) -> bool:
+    """Noktalı internal component mi? (.efa-datatable/column, .select vs.)"""
+    return name.startswith(".")
+
+
 def describe_node(node: dict, styles: dict, indent: int = 0) -> list[str]:
-    """Tek bir node'u ve tüm children'ını recursive olarak anlat."""
-    prefix = "  " * indent
-    lines = []
+    """
+    Tek bir node'u ve tüm children'ını recursive olarak anlat.
     
+    Noktalı component'ler (.efa-datatable/column, .select vs.) GÖRÜNMEZdir:
+    - Kendileri yazılmaz
+    - Ama içlerindeki catalog component'ler (efa-*, cfa-*, wsp-*) çıkarılır
+    - Çıkarılan component'ler parent'ın indent seviyesinde gösterilir
+    """
     name = node.get("name", "")
     node_type = node.get("type", "")
+    
+    # ── Noktalı internal → kendisini atla, children'dan catalog olanları kurtar ──
+    if _is_dotted_internal(name):
+        return _rescue_from_dotted(node, styles, indent)
+    
+    prefix = "  " * indent
+    lines = []
     
     # ── Header line ──
     header = f"{prefix}- \"{name}\" ({node_type})"
@@ -270,6 +296,45 @@ def describe_node(node: dict, styles: dict, indent: int = 0) -> list[str]:
         for child in children:
             child_lines = describe_node(child, styles, indent + 1)
             lines.extend(child_lines)
+    
+    return lines
+
+
+def _rescue_from_dotted(node: dict, styles: dict, indent: int) -> list[str]:
+    """
+    Noktalı internal component'in subtree'sini tara.
+    Catalog component'leri (efa-*, cfa-*, wsp-*) ve TEXT node'ları çıkar.
+    Non-catalog, non-dotted FRAME'leri de layout bilgisiyle birlikte çıkar.
+    Diğer her şeyi atla.
+    """
+    lines = []
+    children = node.get("children", [])
+    
+    for child in children:
+        child_name = child.get("name", "")
+        child_type = child.get("type", "")
+        
+        if _is_catalog_component(child_name):
+            # Catalog component → tam describe
+            child_lines = describe_node(child, styles, indent)
+            lines.extend(child_lines)
+        
+        elif _is_dotted_internal(child_name):
+            # İç içe noktalı → recursive rescue
+            rescued = _rescue_from_dotted(child, styles, indent)
+            lines.extend(rescued)
+        
+        elif child_type == "TEXT" and child.get("text"):
+            # Text node → önemli olabilir (header text, label vs.)
+            child_lines = describe_node(child, styles, indent)
+            lines.extend(child_lines)
+        
+        elif child_type in ("FRAME", "GROUP"):
+            # Normal frame → children'ına in, belki içinde catalog var
+            rescued = _rescue_from_dotted(child, styles, indent)
+            lines.extend(rescued)
+        
+        # Diğerleri (RECTANGLE, ELLIPSE vs.) → atla
     
     return lines
 
