@@ -93,7 +93,10 @@ def describe_layout(layout: Optional[dict]) -> list[str]:
         loc = layout["locationRelativeToParent"]
         x = loc.get("x", 0)
         y = loc.get("y", 0)
-        lines.append(f"Position: x: {x}px, y: {y}px (no auto-layout parent)")
+        lines.append(f"Position: x: {x}px, y: {y}px (relative to parent)")
+    elif layout.get("boundingBox"):
+        bb = layout["boundingBox"]
+        lines.append(f"Bounds: x: {bb['x']}px, y: {bb['y']}px, {bb['width']}x{bb['height']}px")
     
     return lines
 

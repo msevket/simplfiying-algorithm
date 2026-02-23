@@ -225,6 +225,19 @@ def _extract_dimensions(node: dict, parent: Optional[dict], mode: str) -> dict:
             "x": round_num(bbox.get("x", 0) - parent_bbox.get("x", 0)),
             "y": round_num(bbox.get("y", 0) - parent_bbox.get("y", 0)),
         }
+    
+    # For mode:none nodes, also store own bounding box as fallback
+    # (parent bbox may not always be available)
+    if mode == "none" and bbox:
+        w = bbox.get("width")
+        h = bbox.get("height")
+        if w is not None and h is not None:
+            result["boundingBox"] = {
+                "x": round_num(bbox.get("x", 0)),
+                "y": round_num(bbox.get("y", 0)),
+                "width": round_num(w),
+                "height": round_num(h),
+            }
 
     # Dimensions (contextual — depends on parent layout mode)
     if bbox:
