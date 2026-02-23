@@ -562,16 +562,27 @@ def _traverse_node(
 
 
 def vector_collapse_hook(parent_node: dict, result: SimplifiedNode, children: list[SimplifiedNode]) -> list:
-    """afterChildren hook: collapse all-vector containers into IMAGE-SVG."""
+    """afterChildren hook: collapse all-vector containers into IMAGE-SVG.
+    
+    INSTANCE node'ları collapse ETMEYİZ — çünkü component bilgisi (name, componentId,
+    componentProperties) korunmalı. Özellikle efa-icons:* gibi icon component'leri
+    tek bir Vector child'a sahiptir, bunları IMAGE-SVG'ye çevirmek bilgi kaybıdır.
+    """
     if not children:
         return children
     parent_type = parent_node.get("type", "")
     all_vectors = all(c.get("type") in VECTOR_TYPES for c in children)
-    is_container = parent_type in ("FRAME", "GROUP", "INSTANCE")
+    # Sadece FRAME ve GROUP collapse edilir, INSTANCE asla
+    is_collapsible = parent_type in ("FRAME", "GROUP")
 
-    if is_container and all_vectors:
+    if is_collapsible and all_vectors:
         result["type"] = "IMAGE-SVG"
         return []  # Drop children
+    
+    # INSTANCE ise children'ı at ama type'ı koru
+    if parent_type == "INSTANCE" and all_vectors:
+        return []  # Vector children gereksiz, ama INSTANCE type'ı ve bilgileri korunur
+    
     return children
 
 
